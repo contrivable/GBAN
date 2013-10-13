@@ -117,7 +117,7 @@ def disectBLZ(blz):
 def main():
     # HELP
     if len(sys.argv)==1:
-        alert('USAGE: '+sys.argv[0]+' [bank number]*')
+        alert('USAGE: '+sys.argv[0]+' [<bank number>]*')
         alert('Continuing with display of all data.')
     # READ all
     global banks
