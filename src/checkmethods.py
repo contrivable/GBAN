@@ -4,8 +4,14 @@
 # Convention:
 # * check method has no input parameteer weights until it is called from
 #   another check method or it doesn't call another method
+# TODO:
+# * check: do name named parameters, esp. debug=debug
+# * check: it's "checkDigit", not "checkDigits"
+# * check: check_XY uses debug "alert('check_XY::[..]"
+# * check: check_XY uses "check_XY:: START:" and "check_XY:: RESULT:"
+# * find real account numbers for each check method and check (unit test?)
 
-# LAST 20131013
+# LAST 20131027
 
 import sys
 import re
@@ -282,7 +288,7 @@ jedoch nach der Division der Rest 1 ergeben, so ist die
 Kontonummer unabhängig vom eigentlichen Berechnungs-
 ergebnis richtig, wenn die Ziffern an 10. und 9. Stelle
 identisch sind."""
-def check_16(accountno,weights=[2,3,4,5,6,7],debug=False):
+def check_16(accountno,weights=[2,3,4,5,6,7],debug=False):      # same weights as 06
     if debug: alert('check_16:: START:\naccountno:\n'+str(accountno)+'\tweights: '+str(weights))
     digits = accountno[:9][::-1]
     checkDigit = int(str(accountno)[-1])
@@ -385,27 +391,23 @@ alle Stellen berücksichtigt, indem solange Quersummen
 gebildet werden, bis ein einstelliger Wert verbleibt. Die
 Differenz zwischen diesem Wert und dem Wert 10 ist die
 Prüfziffer."""
-def check_21(accountno,weights=[2,1],debug=False):    # UNCHECKED
-    if debug: alert('check_21:: starting:\taccountno: '+str(accountno)+'\tweights: '+str(weights))
-    hand = 0
-    if debug: alert('check_21:: weighing:\n'+
-        'hand:\tpos:\tdigit:\tweight:\tproduct:\tcross sum:')
-    for i in range(len(str(accountno))-1):
-        pos = -(i+2)
-        digit = int( str(accountno)[pos] )
-        weight = int( weights[i%len(weights)] )
-        product = digit*weight
-        cs = cross_sum( product )
-        if debug:     alert(str(hand)+'\t'+str(pos)+'\t'+str(digit)+'\t'+str(weight)+'\t'+str(product)+'\t'+str(cs))
-        hand += cs
-    if debug: alert('check_21:: weight: '+str(hand))
-    while hand>9:
-        hand = cross_sum( hand )
-        if debug:     alert('check_21:: cross_sum: '+str(hand))
-    hand = 10-hand
-    if debug: alert('check_21:: 10 diff: '+str(hand))
-    result = hand==int(str(accountno)[-1])
-    if debug: alert('check_21:: result: '+str(result)+'\tlast account digit: '+str(accountno)[-1]+'\tpreresult: '+str(hand))
+def check_21(accountno,weights=[2,1],debug=False):    # 
+    if debug: alert('check_21:: START:\naccountno:\t'+str(accountno)+'\tweights:\t'+str(weights))
+    if len(accountno)!=10:
+        if debug: alert('check_21:: RESULT: False - accountno of length not 10')
+        return False
+    digits = accountno[:9][::-1]
+    checkDigit = int(str(accountno)[-1])
+    if debug: alert('account digits:\t'+str(digits)+'\tcheck digit: '+str(checkDigit))
+    inter = [weighing(digits,weights,post=cross_sum,debug=debug)]
+    inter.append(inter[-1])
+    while inter[-1]>9:
+        inter[-1] = cross_sum( inter[-1] )
+    inter.append(10 - inter[-1])
+    if debug:
+        alert('weight:\tcross:\t10-x:\n'+'\t'.join([str(n) for n in inter]))
+    result = inter[-1]==checkDigit
+    if debug: alert('check_21:: RESULT: '+str(result)+'\tcheck digit: '+str(checkDigit)+'\tcalculated: '+str(inter[-1]))
     return result
 
 """Modulus 10, Gewichtung 3, 1, 3, 1, 3, 1, 3, 1, 3
@@ -415,26 +417,18 @@ jeweiligen Produkten bleiben die Zehnerstellen
 unberücksichtigt. Die verbleibenden Zahlen (Einerstellen)
 werden addiert. Die Differenz bis zum nächsten Zehner ist
 die Prüfziffer."""
-def check_22(accountno,weights=[3,1],debug=False):    # UNCHECKED
-    if debug: alert('check_22:: starting:\taccountno: '+str(accountno)+'\tweights: '+str(weights))
-    hand = 0
-    if debug: alert('check_22:: weighing:\n'+
-        'hand:\tpos:\tdigit:\tweight:\tproduct:\tmod 10:')
-    for i in range(len(str(accountno))-1):
-        pos = -(i+2)
-        digit = int( str(accountno)[pos] )
-        weight = int( weights[i%len(weights)] )
-        product = digit*weight
-        mod10 = product%10
-        if debug:     alert(str(hand)+'\t'+str(pos)+'\t'+str(digit)+'\t'+str(weight)+'\t'+str(product)+'\t'+str(mod10))
-        hand += mod10
-    if debug: alert('check_22:: weight: '+str(hand))
-    hand = hand%10
-    if debug: alert('check_22:: mod 10: '+str(hand))
-    hand = 10-hand
-    if debug: alert('check_22:: 10 diff: '+str(hand))
-    result = hand==int(str(accountno)[-1])
-    if debug: alert('check_22:: result: '+str(result)+'\tlast account digit: '+str(accountno)[-1]+'\tpreresult: '+str(hand))
+def check_22(accountno,weights=[3,1],debug=False):    # 
+    if debug: alert('check_22:: START:\naccountno:\t'+str(accountno)+'\tweights:\t'+str(weights))
+    digits = accountno[:9][::-1]
+    checkDigit = int(str(accountno[-1]))
+    if debug: alert('account digits:\t'+str(digits)+'\tcheck digit: '+str(checkDigit))
+    inter = [weighing(digits,weights,post=None,debug=debug)]
+    inter.append(inter[-1]%10)
+    inter.append(10-inter[-1])
+    if debug:
+        alert('weight:\tx%10:\t10-x:\n'+'\t'.join([str(n) for n in inter]))
+    result = inter[-1]==checkDigit
+    if debug: alert('check_22:: RESULT: '+str(result)+'\tcheck digit: '+str(checkDigit)+'\tcalculated: '+str(inter[-1]))
     return result
 
 """Modulus 11, Gewichtung 2, 3, 4, 5, 6, 7
@@ -452,33 +446,16 @@ Rest = 1 Prüfziffer = 6. und 7. Stelle
 der
 Kontonummer müssen
 identisch sein
-Rest = 2 bis 10 Prüfziffer = 11 minus Rest"""
-def check_23(accountno,weights=[2,3,4,5,6,7],debug=False):    # UNCHECKED
-    if debug: alert('check_23:: starting:\taccountno: '+str(accountno)+'\tweights: '+str(weights))
-    hand = 0
-    accountno = accountno[:7]
-    # weighing
-    if debug: alert('check_23:: weighing:\n'+'hand:\tpos:\tdigit:\tweight:\tproduct:')
-    for i in range(len(str(accountno))-1):
-        pos = -(i+2)
-        digit = int( str(accountno)[pos] )
-        weight = int( weights[i%len(weights)] )
-        product = digit*weight
-        if debug:     alert(str(hand)+'\t'+str(pos)+'\t'+str(digit)+'\t'+str(weight)+'\t'+str(product))
-        hand += product
-    if debug: alert('check_23:: weight: '+str(hand))
-    hand = hand%11
-    if debug: alert('check_23:: mod 11: '+str(hand))
-    if hand==1 and accountno[5]==accountno[6]:
-        result = True
-        if debug:     alert('check_23:: result: '+str(result)+'\tearly out')
-        return result
-    hand = 11-hand
-    if debug: alert('check_23:: 11 diff: '+str(hand))
-    hand = hand%11
-    if debug: alert('check_23:: mod 11: '+str(hand))
-    result = hand==int(str(accountno)[-1])
-    if debug: alert('check_23:: result: '+str(result)+'\tlast account digit: '+str(accountno)[-1]+'\tpreresult: '+str(hand))
+Rest = 2 bis 10 Prüfziffer = 11 minus Rest
+[geändert zum 2001-09-03]"""
+def check_23(accountno,weights=[2,3,4,5,6,7],debug=False):    # same weights as 16 and 06
+    if debug: alert('check_23:: START:\naccountno:\t'+str(accountno)+'\tweights:\t'+str(weights))
+    digits = accountno[:6][::-1]
+    checkDigit = int(str(accountno[6]))
+    workingno = accountno[7:]
+    if debug: alert('account digits:\t'+str(digits)+'\tcheck digit: '+str(checkDigit)+'\tunused: '+str(workingno))
+    result = check_16('0'*3+digits+str(checkDigit),weights=weights,debug=debug)
+    if debug: alert('check_23:: RESULT: '+str(result))
     return result
 
 """Modulus 11, Gewichtung 1, 2, 3, 1, 2, 3, 1, 2, 3
@@ -543,36 +520,34 @@ Gewichtung:_______1  2 3 1  2 3_
 Gewich-    _______1  2 3 1  2 3_
 tungsfaktor       8 +4+6+9+14+3 = 33
                            11      3 = Prüfziffer
-                           R3
-"""
-def check_24(accountno,weights=[1,2,3],debug=False):    # UNCHECKED
-    if debug: alert('check_24:: starting:\taccountno: '+str(accountno)+'\tweights: '+str(weights))
-    if len(accountno)==10:
-        if accountno[0] in ['3','4','5','6']:
-            accountno = accountno[1:]
-            if debug:         alert('check_24:: 3456 start: '+str(accountno))
-        elif account[0]=='9':
-            accountno = accountno[3:]
-            if debug:         alert('check_24:: 9 start: '+str(accountno))
-            if accountno[0]=='0':
-                result = False
-                if debug:             alert('check_24:: result: '+str(result)+' early out')
+                           R3 """
+def check_24(accountno,weights=[1,2,3],debug=False):    # 
+    if debug: alert('check_24:: START:\naccountno:\t'+str(accountno)+'\tweights:\t'+str(weights))
+    accountno = '0'*(10-len(accountno))+accountno
+    digits = accountno[:9]
+    if digits[0] in ['3','4','5','6']:
+        digits[0]='0'
+    if digits[0]=='9':
+        digits[0:3]='000'
+    while digits[0]:
+        digits = digits[1:]
+    checkDigit = int(str(accountno[-1]))
+    if debug: alert('account digits:\t'+str(digits)+'\tcheck digit: '+str(checkDigit))
+    if debug:
+        report('hand:\tpos:\tdigit:\tweight:\tprod:')
     hand = 0
-    if debug: alert('check_24:: weighing:\n'+'hand:\tpos:\tdigit:\tweight:\tproduct:\tplus:\tmod11:')
-    for i in range(len(str(accountno))-1):
-        pos = i
-        digit = int( str(accountno)[pos] )
-        weight = int( weights[i%len(weights)] )
-        product = digit*weight
-        plus = product+weight
-        mod11 = plus%11
-        if debug:     alert(str(hand)+'\t'+str(pos)+'\t'+str(digit)+'\t'+str(weight)+'\t'+str(product)+'\t'+str(plus)+'\t'+str(mod11))
-        hand += mod11
-    if debug: alert('check_24:: weight: '+str(hand))
-    hand = hand%10
-    if debug: alert('check_24:: mod 10: '+str(hand))
-    result = hand==int(str(accountno)[-1])
-    if debug: alert('check_24:: result: '+str(result)+'\tlast account digit: '+str(accountno)[-1]+'\tpreresult: '+str(hand))
+    for pos in range(len(str(digits))):
+        digit = int( str(digits)[pos] )
+        weight = int( weights[pos%len(weights)] )
+        product = ((digit+1)*weight)%11
+        alert(str(hand)+'\t'+str(pos)+'\t'+str(digit)+'\t'+str(weight)+'\t'+str(product))
+        hand += product
+    inter = [hand]
+    inter.append(inter[-1]%10)
+    if debug:
+        alert('weight:\tx%10:\n'+'\t'.join([str(n) for n in inter]))
+    result = inter[-1]==checkDigit
+    if debug: alert('check_24:: RESULT: '+str(result)+'\tcheck digit: '+str(checkDigit)+'\tcalculated: '+str(inter[-1]))
     return result
 
 """Modulus 11, Gewichtung 2, 3, 4, 5, 6, 7, 8, 9 ohne Quersumme
@@ -600,34 +575,24 @@ Gewichtung:___9  8 7  6  5 4 3  2_
              45+16+7+18+40+8+3+16 = 153
 153 : 11 = 13, Rest 10
 11 - 10 = 1, Prüfziffer = 1"""
-def check_25(accountno,weights=[2,3,4,5,6,7,8,9],debug=False):    # UNCHECKED
-    if debug: alert('check_25:: starting:\taccountno: '+str(accountno)+'\tweights: '+str(weights))
-    workingno = accountno[0]
-    if debug: alert('check_25:: working number:\tworkingno: '+str(workingno))
-    accountno = accountno[1:]
-    if debug: alert('check_25:: remove working number:\taccountno: '+str(accountno))
-    hand = 0
-    if debug: alert('check_25:: weighing:\n'+'hand:\tpos:\tdigit:\tweight:\tproduct:')
-    for i in range(len(str(accountno))-1):
-        pos = -(i+2)
-        digit = int( str(accountno)[pos] )
-        weight = int( weights[i%len(weights)] )
-        product = digit*weight
-        if debug:     alert(str(hand)+'\t'+str(pos)+'\t'+str(digit)+'\t'+str(weight)+'\t'+str(product))
-        hand += product
-    if debug: alert('check_25:: weight: '+str(hand))
-    hand = hand%11
-    if debug: alert('check_25:: mod 11: '+str(hand))
-    if hand == '1':
-        result = workingno in ['8','9']
-        if debug:     alert('check_25:: result: '+str(result)+'\tworkingno: '+str(workingno)+'\tremainder: '+str(hand)+' early out')
-        return result
-    hand = 11-hand
-    if debug: alert('check_25:: 11 diff: '+str(hand))
-    hand = hand%11
-    if debug: alert('check_25:: mod 11: '+str(hand))
-    result = hand==int(str(accountno)[-1])
-    if debug: alert('check_25:: result: '+str(result)+'\tlast account digit: '+str(accountno)[-1]+'\tpreresult: '+str(hand))
+def check_25(accountno,weights=[2,3,4,5,6,7,8,9],debug=False):    # 
+    if debug: alert('check_25:: START:\naccountno:\t'+str(accountno)+'\tweights:\t'+str(weights))
+    workingno = accountno[1]
+    digits = accountno[1:9][::-1]
+    checkDigit = int(str(accountno[-1]))
+    if debug: alert('account digits:\t'+str(digits)+'\tcheck digit: '+str(checkDigit)+'\tworking digit: '+workingno)
+    inter = [weighing(digits,weights,post=None,debug=debug)]
+    inter.append(inter[-1]%11)
+    inter.append(11-inter[-1])
+    inter.append(inter[-1]%11)  # remap remainder 0 to 0
+    if debug:
+        alert('weight:\tx%11:\t11-x:\tx%11\n'+'\t'.join([str(n) for n in inter]))
+    if inter[-1]==10:   # remainder 1
+        result = checkDigit==0 and workingno in ['8','9']
+        if debug: alert('check_25:: RESULT: '+str(result)+'\tcheck digit: '+str(checkDigit)+'\tcalculated: '+str(inter[-1])+'\tworking digit: '+workingno)
+    else:
+        result = inter[-1]==checkDigit
+        if debug: alert('check_25:: RESULT: '+str(result)+'\tcheck digit: '+str(checkDigit)+'\tcalculated: '+str(inter[-1]))
     return result
 
 """Modulus 11. Gewichtung 2, 3, 4, 5, 6, 7, 2
@@ -640,31 +605,16 @@ Modifizierung: für die Berechnung relevant sind die Stellen 1 -
 handelt es sich um eine Unterkontonummer, welche für die
 Berechnung nicht berücksichtigt wird.
 Testkontonummern: 0520309001, 1111118111, 0005501024"""
-def check_26(accountno,weights=[2,3,4,5,6,7],debug=False):    # UNCHECKED
-    if debug: alert('check_26:: starting:\taccountno: '+str(accountno)+'\tweights: '+str(weights))
+def check_26(accountno,weights=[2,3,4,5,6,7],debug=False):    # same weights as 06
+    if debug: alert('check_26:: START:\naccountno:\t'+str(accountno)+'\tweights:\t'+str(weights))
     if accountno[:2]=='00':
-        accountno = accoutno[2:]
-        if debug:     alert('check_26:: 00 start:\taccountno: '+str(accountno))
-    accountno = accoutno[:8]
-    if debug: alert('check_26:: pos 1-8:\taccountno: '+str(accountno))
-    hand = 0
-    if debug: alert('check_26:: weighing:\n'+'hand:\tpos:\tdigit:\tweight:\tproduct:')
-    for i in range(len(str(accountno))-1):
-        pos = -(i+2)
-        digit = int( str(accountno)[pos] )
-        weight = int( weights[i%len(weights)] )
-        product = digit*weight
-        if debug:     alert(str(hand)+'\t'+str(pos)+'\t'+str(digit)+'\t'+str(weight)+'\t'+str(product))
-        hand += product
-    if debug: alert('check_26:: weight: '+str(hand))
-    hand = hand%11
-    if debug: alert('check_26:: mod 11: '+str(hand))
-    hand = 11-hand
-    if debug: alert('check_26:: 11 diff: '+str(hand))
-    hand = hand%10
-    if debug: alert('check_26:: mod 10: '+str(hand))
-    result = hand==int(str(accountno)[-1])
-    if debug: alert('check_26:: result: '+str(result)+'\tlast account digit: '+str(accountno)[-1]+'\tpreresult: '+str(hand))
+        accountno = accoutno[2:]+'00'
+    digits = accountno[:7]
+    checkDigit = int(str(accountno[7]))
+    subaccount = accountno[8:]
+    if debug: alert('account digits:\t'+str(digits)+'\tcheck digit: '+str(checkDigit)+'\tsubaccount: '+subaccount)
+    result = check_06('00'+digits+str(checkDigit),weights=weights,debug=debug)
+    if debug: alert('check_26:: RESULT: '+str(result))
     return result
 
 """Modulus 10, Gewichtung 2, 1, 2, 1, 2, 1, 2, 1, 2 (modifiziert)
@@ -702,34 +652,37 @@ Summe 42
 Die Einerstelle wird vom Wert 10 subtrahiert. Das Ergebnis
 ist die Prüfziffer, in unserem Beispiel also 10 – 2 =
 Prüfziffer 8, die Kontonummer lautet somit 2847169488."""
-def check_27(accountno,weights=[2,1],debug=False):    # UNCHECKED
-    if debug: alert('check_27:: starting:\taccountno: '+str(accountno)+'\tweights: '+str(weights))
+def check_27(accountno,weights=[2,1],debug=False):    # same weights as 00
+    if debug: alert('check_27:: START:\naccountno:\t'+str(accountno)+'\tweights:\t'+str(weights))
     if long(accountno) < 1000000000:    # lt 1 billion
-        result = check_00(accountno,debug=debug)
-        if debug:     alert('check_27:: result: '+str(result))
+        result = check_00(accountno,weights=weights,debug=debug)
+        if debug:     alert('check_27:: RESULT: '+str(result))
         return result
-    hand = 0
+    # M10H (?)
     indexes = [1,2,3,4]
     codes = {    1:[0,1,5,9,3,7,4,8,2,6],
                 2:[0,1,7,6,9,8,3,2,5,4],
                 3:[0,1,8,4,6,2,9,5,7,3],
                 4:[0,1,2,3,4,5,6,7,8,9]}
-    if debug: alert('check_27:: coding:\n'+'hand:\tpos:\tdigit:\tline:\tcode:')
+    digits = accountno[:9][::-1]
+    checkDigit = int(str(accountno[-1]))
+    if debug: alert('account digits:\t'+str(digits)+'\tcheck digit: '+str(checkDigit))
+    hand = 0
+    if debug: alert('hand:\tpos:\tdigit:\tline:\tcode:')
     for i in range(len(str(accountno))-1):
-        pos = -(i+2)
-        digit = int(accountno[pos])
+        digit = int(digits[i])
         line = indexes[i%len(indexes)]
         code = codes[line][digit]
         if debug:     alert(str(hand)+'\t'+str(i)+'\t'+str(digit)+'\t'+str(line)+'\t'+str(code))
         hand += code
-    hand = hand%10
-    if debug: alert('check_27:: mod 10: '+str(hand))
-    hand = 10-hand
-    if debug: alert('check_27:: 10 diff: '+str(hand))
-    hand = hand%10
-    if debug: alert('check_27:: mod 10: '+str(hand))
-    result = hand==int(str(accountno)[-1])
-    if debug: alert('check_27:: preresult: '+str(hand)+'\tlast account digit: '+str(accountno)[-1]+'\tresult: '+str(result))
+    inter = [hand]
+    inter.append(inter[-1]%10)
+    inter.append(10-inter[-1])
+    inter.append(inter[-1]%10)  # undocumented assumed behaviour
+    if debug:
+        alert('weight:\tx%10:\t10-x:\tx%10\n'+'\t'.join([str(n) for n in inter]))
+    result = inter[-1]==checkDigit
+    if debug: alert('check_27:: RESULT: '+str(result))
     return result
 
 """Modulus 11, Gewichtung 2, 3, 4, 5, 6, 7, 8
@@ -746,35 +699,15 @@ Gewichtung: 8 7 6 5 4 3 2
 Wird als Rest eine 0 oder eine 1 ermittelt, so lautet die
 Prüfziffer 0.
 Testkontonummern: 19999000, 9130000201"""
-def check_28(accountno,weights=[2,3,4,5,6,7,8],debug=False):    # UNCHECKED
-    if debug: alert('check_28:: starting:\taccountno: '+str(accountno)+'\tweights: '+str(weights))
+def check_28(accountno,weights=[2,3,4,5,6,7,8],debug=False):    # 
+    if debug: alert('check_28:: START:\naccountno:\t'+str(accountno)+'\tweights:\t'+str(weights))
     if len(accountno)!=10:
-        result = False
-        if debug:     alert('check_28:: result: '+str(result)+' early out, unfit accountno')
-        return result
-    accountno = accountno[:8]
-    if debug: alert('check_28:: accountno: '+str(accountno))
-    hand = 0
-    if debug: alert('check_28:: weighing:\n'+'hand:\tpos:\tdigit:\tweight:\tproduct:')
-    for i in range(len(str(accountno))-1):
-        pos = -(i+2)
-        digit = int( str(accountno)[pos] )
-        weight = int( weights[i%len(weights)] )
-        product = digit*weight
-        if debug:     alert(str(hand)+'\t'+str(pos)+'\t'+str(digit)+'\t'+str(weight)+'\t'+str(product))
-        hand += product
-    if debug: alert('check_28:: weight: '+str(hand))
-    hand = hand%11
-    if debug: alert('check_28:: mod 11: '+str(hand))
-    if hand=='0':
-        hand='1'
-        if debug:     alert('check_28:: remainder 0 correction: '+str(hand))
-    hand = 11-hand
-    if debug: alert('check_28:: 11 diff: '+str(hand))
-    hand = hand%10
-    if debug: alert('check_28:: mod 10: '+str(hand))
-    result = hand==int(str(accountno)[-1])
-    if debug: alert('check_28:: result: '+str(result)+'\tlast account digit: '+str(accountno)[-1]+'\tpreresult: '+str(hand))
+        if debug:     alert('check_28:: RESULT: False early out, unfit accountno')
+        return False
+    digits = accountno[:7][::-1]
+    checkDigit = int(str(accountno[7]))
+    result = check_06('00'+digits+str(checkDigit),weights=weights,debug=debug)
+    if debug: alert('check_28:: RESULT: '+str(result))
     return result
 
 """Modulus 10, iterierte Transformation
@@ -812,7 +745,7 @@ links: Ziffer 2 wird 5 (Tabelle: Zeile 1)
 Summe:              41     (Einerstelle = 1)
 Subtraktion : (10 - 1) = 9 (= Prüfziffer)
 Kontonummer mit Prüfziffer: 3 1 4 5 8 6 3 0 2 9"""
-def check_29(accountno,debug=False):    # UNCHECKED
+def check_29(accountno,debug=False):    # 
     if debug: alert('check_29:: starting:\taccountno: '+str(accountno))
     hand = 0
     indexes = [1,2,3,4]
@@ -844,7 +777,7 @@ wie bei Verfahren 00.
 Stellennr.: 1 2 3 4 5 6 7 8 9 A (A=10)
 Kontonr.:   x x x x x x x x x P
 Gewichtung: 2 0 0 0 0 1 2 1 2"""
-def check_30(accountno,weights=[2,0,0,0,0,1,2,1,2],debug=False):    # UNCHECKED
+def check_30(accountno,weights=[2,0,0,0,0,1,2,1,2],debug=False):    # 
     if debug: alert('check_30:: starting:\taccountno: '+str(accountno)+'\tweights: '+str(weights))
     hand = 0
     if debug: alert('check_30:: weighing:\n'+
@@ -884,7 +817,7 @@ Gewichtung: 1 2  3  4 5  6 7 8  9
 137 : 11 = 12 Rest 5
 5 = Prüfziffer
 Testkontonummern: 1000000524, 1000000583"""
-def check_31(accountno,weights=[9,8,7,6,5,4,3,2,1],debug=False):    # UNCHECKED
+def check_31(accountno,weights=[9,8,7,6,5,4,3,2,1],debug=False):    # 
     if debug: alert('check_31:: starting:\taccountno: '+str(accountno)+'\tweights: '+str(weights))
     if len(accountno)!=10:
         result = False
@@ -921,7 +854,7 @@ Kontonr.:   x x x x x x x x x P
 Gewichtung:       7 6 5 4 3 2
 Testkontonummern: 9141405, 1709107983, 0122116979,
 0121114867, 9030101192, 9245500460"""
-def check_32(accountno,weights=[2,3,4,5,6,7],debug=False):    # UNCHECKED
+def check_32(accountno,weights=[2,3,4,5,6,7],debug=False):    # 
     if debug: alert('check_32:: starting:\taccountno: '+str(accountno)+'\tweights: '+str(weights))
     if len(accountno)!=10:
         result = False
@@ -959,7 +892,7 @@ Stellennr.: 1 2 3 4 5 6 7 8 9 A (A=10)
 Kontonr.:   x x x x x x x x x P
 Gewichtung:         6 5 4 3 2
 Testkontonummern: 48658, 84956"""
-def check_33(accountno,weights=[2,3,4,5,6],debug=False):    # UNCHECKED
+def check_33(accountno,weights=[2,3,4,5,6],debug=False):    # 
     if debug: alert('check_33:: starting:\taccountno: '+str(accountno)+'\tweights: '+str(weights))
     if len(accountno)!=10:
         result = False
@@ -1028,7 +961,7 @@ Gewichtung: 10 9 8 7 6 5 4  3 2
              0+0+0+0+6+0+4+15+18 = 43:11 Rest 10
 Testkontonummern: 0000108443, 0000107451, 0000102921,
 0000102349, 0000101709, 0000101599"""
-def check_35(accountno,weights=[2,3,4,5,6,7,8,9,10],debug=False):    # UNCHECKED
+def check_35(accountno,weights=[2,3,4,5,6,7,8,9,10],debug=False):    # 
     if debug: alert('check_35:: starting:\taccountno: '+str(accountno)+'\tweights: '+str(weights))
     if len(accountno)!=10:
         accountno = '0'*(10-len(accountno))+accountno
@@ -1063,7 +996,7 @@ Stellennr.: 1 2 3 4 5 6 7 8 9 A (A = 10)
 Kontonr.:   x x x x x x x x x P
 Gewichtung:           5 8 4 2
 Testkontonummern: 113178, 146666"""
-def check_36(accountno,weights=[2,4,8,5],debug=False):    # UNCHECKED
+def check_36(accountno,weights=[2,4,8,5],debug=False):    # 
     if debug: alert('check_36:: starting:\taccountno: '+str(accountno)+'\tweights: '+str(weights))
     if len(accountno)!=10:
         result = False
@@ -1171,8 +1104,8 @@ def weighing(digits,weights,post=None,debug=False):
     return hand
      
 def isValidCheckMethod(checkMethod):
-    if checkMethod=='12': return False
-    return re.match('^[0-9A-D][0-9]$|^E0$',checkMethod)!=None
+    return checkMethod!='12' and re.match('^[0-2][0-9]$|^3[0-4]$|^B8$|^118$',checkMethod)!=None # Currently available
+#    return checkMethod!='12' and re.match('^([0-9]|[A-D]|1[0-4])[0-9]$|^E0$',checkMethod)!=None
 
 def executeCheck(checkMethod,accountno,debug=False):
     if isValidCheckMethod(checkMethod):
@@ -1180,7 +1113,7 @@ def executeCheck(checkMethod,accountno,debug=False):
     else:
         return 'Invalid check method'
 
-if __name__=='__main__':
+def main():
     if len(sys.argv)>2:
         method = sys.argv[1].upper()
         if not isValidCheckMethod(method):
@@ -1192,10 +1125,12 @@ if __name__=='__main__':
         else:
             debug = False
             numbers = sys.argv[2:]
-        report('Method:\t'+method)
-        report('Debug:\t'+str(debug))
+        report('Method:\t'+method+'\t[debug:'+('on' if debug else 'off')+']')
         report('Numbers:\t'+str(numbers))
         for accountno in numbers:
             report('No.: '+accountno+'\tresult: '+str(executeCheck(method,accountno,debug=debug)))
     else:
         alert('Usage: ./checkmethods.py <check-method> [debug] <account-number>+')
+
+if __name__=='__main__':
+    main()
